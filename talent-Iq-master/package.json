@@ -1,0 +1,46 @@
+{
+  "name": "js-crud",
+  "version": "1.0.0",
+  "description": "crud",
+  "license": "ISC",
+  "author": "om",
+  "type": "module",
+  "main": "backend/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "set NODE_ENV=production&& node backend/index.js",
+    "dev": "set NODE_ENV=development&& nodemon backend/index.js",
+    "build": "npm install && npm install --prefix frontend && npm run build --prefix frontend"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "prettier": "^3.5.2"
+  },
+  "dependencies": {
+    "@clerk/express": "^1.7.41",
+    "@stream-io/node-sdk": "^0.7.12",
+    "bcrypt": "^6.0.0",
+    "cloudinary": "^2.7.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^8.1.0",
+    "express-validator": "^6.13.0",
+    "helmet": "^8.1.0",
+    "hpp": "^0.2.3",
+    "inngest": "^3.44.3",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.1",
+    "mongoose-aggregate-paginate-v2": "^1.1.4",
+    "morgan": "^1.10.1",
+    "multer": "^2.0.2",
+    "prom-client": "^15.1.3",
+    "resend": "^6.1.0",
+    "response-time": "^2.3.4",
+    "stream-chat": "^9.24.0",
+    "winston": "^3.17.0",
+    "xss-clean": "^0.1.4"
+  }
+}
