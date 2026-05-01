@@ -1,17 +1,30 @@
-import { Link, useLocation } from "react-router";
-import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon, BellIcon, CheckIcon, CheckCircle2Icon } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
+import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from "../hooks/useNotifications";
 
 function Navbar() {
   const location = useLocation();
 
   // console.log(location); 
-  // this console log is use to see th obj of location and to check the pathname
-
-  // const isActive = (path) => location.pathname === path;
   const isActive = (path) => location.pathname.startsWith(path);
+  const navigate = useNavigate();
 
+  const { data: notifications } = useNotifications();
+  const markReadMutation = useMarkNotificationRead();
+  const markAllReadMutation = useMarkAllNotificationsRead();
+  const safeNotifications = Array.isArray(notifications) ? notifications : [];
 
+  const unreadCount = safeNotifications.filter(n => !n?.isRead).length;
+
+  const handleNotificationClick = (notification) => {
+    if (!notification.isRead) {
+      markReadMutation.mutate(notification._id);
+    }
+    if (notification.link) {
+      navigate(notification.link);
+    }
+  };
   return (
     <nav className='bg-base-100/80 backdrop-blur-md border-b border-primary/20 sticky top-0 z-50 shadow-lg'>
       <div className='max-w-7xl mx-auto p-4 flex items-center justify-between'>
@@ -69,7 +82,43 @@ function Navbar() {
             </div>
           </Link>
           {/* clerk user button */}
-          <div className='ml-4 mt-2'>
+          
+          <div className="dropdown dropdown-end ml-2 mt-1">
+            <label tabIndex={0} className="btn btn-ghost btn-circle indicator">
+              <BellIcon className="size-5" />
+              {unreadCount > 0 && (
+                <span className="badge badge-sm badge-primary indicator-item">{unreadCount}</span>
+              )}
+            </label>
+            <ul tabIndex={0} className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-80 max-h-96 overflow-y-auto border border-base-200">
+              <li className="menu-title flex flex-row justify-between items-center py-2">
+                <span>Notifications</span>
+                {unreadCount > 0 && (
+                  <button onClick={() => markAllReadMutation.mutate()} className="btn btn-xs btn-ghost gap-1">
+                    <CheckCircle2Icon className="size-3" /> Mark all read
+                  </button>
+                )}
+              </li>
+              {safeNotifications.length === 0 ? (
+                <li className="py-4 text-center text-base-content/50">No notifications yet</li>
+              ) : (
+                safeNotifications.map(n => (
+                  <li key={n._id}>
+                    <a 
+                      onClick={() => handleNotificationClick(n)}
+                      className={`flex flex-col items-start gap-1 p-3 ${!n?.isRead ? 'bg-base-200/50 border-l-4 border-primary' : ''}`}
+                    >
+                      <span className="font-bold text-sm">{n?.title}</span>
+                      <span className="text-xs text-base-content/70 whitespace-normal">{n?.message}</span>
+                      <span className="text-[10px] text-base-content/50">{n?.createdAt ? new Date(n.createdAt).toLocaleDateString() : ""}</span>
+                    </a>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+
+          <div className='ml-2 mt-2'>
             <UserButton />
           </div>
         </div>

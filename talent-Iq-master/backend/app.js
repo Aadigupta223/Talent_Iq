@@ -33,10 +33,18 @@ const __dirname = path.dirname(__filename);
 // Global rate limiter on API
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 10000, // Increased for development to prevent accidental rate limiting
   message: "Too many requests from this IP, please try again later.",
 });
 app.set("trust proxy", 1);
+
+// Enable CORS before any other middleware so that all responses (even errors) get CORS headers
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "*",
+    credentials: true,
+  })
+);
 
 //  -------- promethesus monitoring setup -------------------
 // Enable collection of default metrics
@@ -226,13 +234,6 @@ app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 app.use(express.static("backend/public"));
 app.use(cookieParser());
 
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "*",
-    credentials: true,
-  })
-);
-
 // -------------------- Prometheus Metrics Endpoint --------------------
 app.get("/metrics", async (req, res) => {
   try {
@@ -266,11 +267,17 @@ app.use("/api/inngest", serve({ client: inngest, functions }));
 import healthcheck from "./routes/healthCheck.route.js";
 import chatRoutes from "./routes/chat.route.js";
 import sessionRoutes from "./routes/sessions.route.js";
+import userRoutes from "./routes/users.route.js";
+import assignmentRoutes from "./routes/assignments.route.js";
+import notificationRoutes from "./routes/notifications.route.js";
 
 // -------------------- Routes --------------------
 app.use("/api", healthcheck);
 app.use("/api/chat", chatRoutes);
 app.use("/api/sessions", sessionRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/assignments", assignmentRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // -------------------- Serve Frontend in Production --------------------
 if (process.env.NODE_ENV === "production") {

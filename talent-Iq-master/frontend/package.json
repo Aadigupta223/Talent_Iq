@@ -19,6 +19,7 @@
     "canvas-confetti": "^1.9.3",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
+    "monaco-editor": "^0.55.1",
     "monaco-themes": "^0.4.8",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
@@ -27,7 +28,10 @@
     "react-router": "^7.9.4",
     "stream-chat": "^9.31.0",
     "stream-chat-react": "^13.13.6",
-    "tailwindcss": "^4.1.18"
+    "tailwindcss": "^4.1.18",
+    "y-monaco": "^0.1.6",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.30"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

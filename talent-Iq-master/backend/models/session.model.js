@@ -16,10 +16,17 @@ const sessionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    participant: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
+    participants: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    maxParticipants: {
+      type: Number,
+      default: 100,
+      min: 2,
+      max: 200,
     },
     // end session button 
     status: {
@@ -37,4 +44,3 @@ const sessionSchema = new mongoose.Schema(
 );
 
 export const Session = mongoose.model("Session", sessionSchema);
-

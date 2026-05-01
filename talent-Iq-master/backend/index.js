@@ -15,9 +15,25 @@ const PORT = process.env.PORT || 8000
 console.log("Serving from:", process.env.BASE_URL);
 console.log("CORS ORIGIN is:", process.env.CORS_ORIGIN);
 
+import http from "http";
+import { WebSocketServer } from "ws";
+import yUtils from "y-websocket/bin/utils";
+
+const { setupWSConnection } = yUtils;
+
 connectDB()
 .then(()=>{
-    app.listen(PORT,()=>{
+    const server = http.createServer(app);
+    
+    // Set up WebSocket server for Yjs
+    const wss = new WebSocketServer({ server });
+    wss.on("connection", (conn, req) => {
+      // Setup Yjs connection
+      // We can use req.url to separate rooms if needed
+      setupWSConnection(conn, req, { gc: true });
+    });
+
+    server.listen(PORT,()=>{
     console.log (` ⚙️ SERVER IS RUNNING ON PORT => ${PORT}`)
   })
 })

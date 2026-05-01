@@ -1,7 +1,10 @@
 import Editor from "@monaco-editor/react";
 import { Loader2Icon, PlayIcon } from "lucide-react";
 import { LANGUAGE_CONFIG } from "../data/problems";
-
+import { useRef, useEffect } from "react";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
+import { MonacoBinding } from "y-monaco";
 
 function CodeEditorPanel({
   selectedLanguage,
@@ -10,7 +13,34 @@ function CodeEditorPanel({
   onLanguageChange,
   onCodeChange,
   onRunCode,
+  readOnly,
+  sessionId,
 }) {
+  const editorRef = useRef(null);
+
+  const handleEditorMount = (editor, monaco) => {
+    editorRef.current = editor;
+
+    if (sessionId) {
+      // Setup Collaborative Editing
+      const doc = new Y.Doc();
+      // Derive WebSocket URL from current window location
+      const wsUrl = window.location.protocol === "https:" 
+        ? `wss://${window.location.host}` 
+        : "ws://localhost:4000"; // fallback for local dev
+        
+      const provider = new WebsocketProvider(wsUrl, `session-${sessionId}`, doc);
+      const type = doc.getText("monaco");
+      
+      const binding = new MonacoBinding(type, editor.getModel(), new Set([editor]), provider.awareness);
+      
+      return () => {
+        provider.disconnect();
+        doc.destroy();
+      };
+    }
+  };
+
   return (
     <div className="h-full bg-base-300 flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 bg-base-100 border-t border-base-300">
@@ -20,7 +50,7 @@ function CodeEditorPanel({
             alt={LANGUAGE_CONFIG[selectedLanguage].name}
             className="size-6"
           />
-          <select className="select select-sm" value={selectedLanguage} onChange={onLanguageChange}>
+          <select className="select select-sm" value={selectedLanguage} onChange={onLanguageChange} disabled={readOnly}>
             {Object.entries(LANGUAGE_CONFIG).map(([key, lang]) => (
               <option key={key} value={key}>
                 {lang.name}
@@ -29,7 +59,7 @@ function CodeEditorPanel({
           </select>
         </div>
 
-        <button className="btn btn-primary btn-sm gap-2" disabled={isRunning} onClick={onRunCode}>
+        <button className="btn btn-primary btn-sm gap-2" disabled={isRunning || readOnly} onClick={onRunCode}>
           {isRunning ? (
             <>
               <Loader2Icon className="size-4 animate-spin" />
@@ -48,15 +78,18 @@ function CodeEditorPanel({
         <Editor
           height={"100%"}
           language={LANGUAGE_CONFIG[selectedLanguage].monacoLang}
-          value={code}
+          value={sessionId ? undefined : code}
+          defaultValue={sessionId ? code : undefined}
           onChange={onCodeChange}
           theme="hc-black"
+          onMount={handleEditorMount}
           options={{
             fontSize: 16,
             lineNumbers: "on",
             scrollBeyondLastLine: false,
             automaticLayout: true,
             minimap: { enabled: true },
+            readOnly: readOnly,
           }}
         />
       </div>

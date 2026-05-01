@@ -6,6 +6,8 @@ const LANGUAGE_VERSIONS = {
   javascript: { language: "javascript", version: "18.15.0" },
   python: { language: "python", version: "3.10.0" },
   java: { language: "java", version: "15.0.2" },
+  c: { language: "c", version: "10.2.0" },
+  cpp: { language: "c++", version: "10.2.0" },
 };
 
 /**. JSDoc comments 
@@ -32,9 +34,6 @@ export async function executeCode(language, code) {
       body: JSON.stringify({
         language: languageConfig.language,
         version: languageConfig.version,
-        //files is an array of objects with name and content properties. This allows us to run multiple files if needed in the future. For now, we will just run a single file with the code from the editor.
-        //Even for single-file code, Piston still wants an array.
-        // namr of main.java , main.py, main.js
         files: [
           {
             name: `main.${getFileExtension(language)}`,
@@ -51,11 +50,10 @@ export async function executeCode(language, code) {
       };
     }
 
-    // data will have the following format: below of code there is one more comment with the actual format of the response
     const data = await response.json();
 
     const output = data.run.output || "";
-    const stderr = data.run.stderr || ""; //compilation errors or runtime errors
+    const stderr = data.run.stderr || "";
 
     if (stderr) {
       return {
@@ -73,7 +71,6 @@ export async function executeCode(language, code) {
     return {
       success: false,
       error: `Failed to execute code: ${error.message}`,
-      // ex network error or piston api is down
     };
   }
 }
@@ -83,15 +80,9 @@ function getFileExtension(language) {
     javascript: "js",
     python: "py",
     java: "java",
+    c: "c",
+    cpp: "cpp",
   };
 
   return extensions[language] || "txt";
 }
-
-// {
-//   "run": {
-//     "stdout": "...",
-//     "stderr": "...",
-//     "output": "..."
-//   }
-// }

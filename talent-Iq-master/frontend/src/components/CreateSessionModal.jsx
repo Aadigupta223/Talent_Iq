@@ -1,4 +1,4 @@
-import { Code2Icon, LoaderIcon, PlusIcon } from "lucide-react";
+import { Code2Icon, LoaderIcon, PlusIcon, UsersIcon } from "lucide-react";
 import { PROBLEMS } from "../data/problems";
 
 function CreateSessionModal({
@@ -31,10 +31,11 @@ function CreateSessionModal({
               value={roomConfig.problem}
               onChange={(e) => {
                 const selectedProblem = problems.find((p) => p.title === e.target.value);
-                setRoomConfig({
+                setRoomConfig((prev) => ({
+                  ...prev,
                   difficulty: selectedProblem.difficulty,
                   problem: e.target.value,
-                });
+                }));
               }}
             >
               <option value="" disabled>
@@ -49,6 +50,33 @@ function CreateSessionModal({
             </select>
           </div>
 
+          {/* MAX PARTICIPANTS */}
+          <div className="space-y-2">
+            <label className="label">
+              <span className="label-text font-semibold">Max Participants</span>
+              <span className="label-text-alt opacity-60">2 – 200</span>
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="2"
+                max="200"
+                value={roomConfig.maxParticipants || 100}
+                onChange={(e) =>
+                  setRoomConfig((prev) => ({
+                    ...prev,
+                    maxParticipants: parseInt(e.target.value),
+                  }))
+                }
+                className="range range-primary flex-1"
+              />
+              <div className="flex items-center gap-2 bg-base-200 px-4 py-2 rounded-lg min-w-[80px] justify-center">
+                <UsersIcon className="size-4 text-primary" />
+                <span className="font-bold text-lg">{roomConfig.maxParticipants || 100}</span>
+              </div>
+            </div>
+          </div>
+
           {/* ROOM SUMMARY */}
           {roomConfig.problem && (
             <div className="alert alert-success">
@@ -59,7 +87,10 @@ function CreateSessionModal({
                   Problem: <span className="font-medium">{roomConfig.problem}</span>
                 </p>
                 <p>
-                  Max Participants: <span className="font-medium">2 (1-on-1 session)</span>
+                  Max Participants:{" "}
+                  <span className="font-medium">
+                    {roomConfig.maxParticipants || 100} users
+                  </span>
                 </p>
               </div>
             </div>

@@ -7,18 +7,31 @@ import { Session } from "../models/session.model.js";
 //? Create a new session
 // NOTE: in this fucnction we take problem, difficulty from body and take userid from both db and clerk generate a unique call id for stream video create session in db create stream video call chat messaging send response
 const createSession = asyncHandler(async (req, res) => {
-  // STEP:1 Get problem and difficulty from body and userId from req.user
-  const { problem, difficulty } = req.body;
+  // STEP:1 Get problem, difficulty, and maxParticipants from body and userId from req.user
+  const { problem, difficulty, maxParticipants } = req.body;
   const userId = req.user._id;
   const clerkId = req.user.clerkId;
 
   if (!problem || !difficulty) {
     throw new ApiError(400, "Problem and difficulty are required to create a session");
   }
+
+  // Validate maxParticipants (default 100, min 2, max 200)
+  const participantLimit = Math.min(
+    200,
+    Math.max(2, parseInt(maxParticipants) || 100)
+  );
+
   // STEP:2 generate a unique call id for stream video
   const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   //STEP:3 create session in db
-  const session = await Session.create({ problem, difficulty, host: userId, callId });
+  const session = await Session.create({
+    problem,
+    difficulty,
+    host: userId,
+    callId,
+    maxParticipants: participantLimit,
+  });
   // Session is model from session.model.js means we are creating a new session document in mongodb with problem difficulty host and callid
 
   //* we used try catch because if stream video call or chat messaging fails we need to rollback the session creation in db
@@ -65,6 +78,7 @@ const getActiveSessions = asyncHandler(async (_req, res) => {
   // STEP:1 fetch all sessions from db where isActive  using populate to get host details why we use populate because host is reference to user model so we need to populate it to get user details
   const sessions = await Session.find({ status: "active" })
     .populate("host", "name profileImage email clerkId")
+    .populate("participants", "name profileImage email clerkId")
     .sort({ createdAt: -1 }) // Sort by createdAt in descending order
     .limit(20); // Limit to 20 sessions
   return res
@@ -77,10 +91,10 @@ const getActiveSessions = asyncHandler(async (_req, res) => {
 const getMyRecentSessions = asyncHandler(async (req, res) => {
   const userId = req.user._id;
 
-  // get sessions where user is either host or participant
+  // get sessions where user is either host or in participants array
   const sessions = await Session.find({
     status: "completed",
-    $or: [{ host: userId }, { participant: userId }],
+    $or: [{ host: userId }, { participants: userId }],
   })
     .sort({ createdAt: -1 })
     .limit(20);
@@ -91,58 +105,23 @@ const getMyRecentSessions = asyncHandler(async (req, res) => {
 });
 
 //? Get session details by ID
-// NOTE: fetch session from db by id populate host and participant details
-// const getSessionById = asyncHandler(async (req, res) => {
-//   const { id } = req.params;
-//   const session = await Session.findById(id)
-//     .populate("host", "name email profileImage clerkId")
-//     .populate("participant", "name email profileImage clerkId");
-
-//   if (!session) {
-//     throw new ApiError(404, "Session not found");
-//   }
-//   // check if user is either host or participant
-//   // const userId = req.user._id;
-//   // if (
-//   //   session.host.toString() !== userId.toString() &&
-//   //   session.participant?.toString() !== userId.toString()
-//   // ) {
-//   //   throw new ApiError(403, "Access denied");
-//   // }
-
-//   const userId = req.user._id;
-
-//   const isHost = session.host.toString() === userId.toString();
-//   const isParticipant = session.participant && session.participant.toString() === userId.toString();
-
-//   // allow access if:
-//   // 1. host
-//   // 2. participant
-//   // 3. active session with empty participant (pre-join preview)
-//   if (!isHost && !isParticipant) {
-//     if (!(session.status === "active" && session.participant === null)) {
-//       throw new ApiError(403, "Access denied");
-//     }
-//   }
-
-//   res.status(200).json(new ApiResponse(200, "Session details fetched successfully", session));
-// });
-
+// NOTE: fetch session from db by id populate host and participants details
 const getSessionById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const userId = req.user._id;
 
   const session = await Session.findById(id)
     .populate("host", "name email profileImage clerkId")
-    .populate("participant", "name email profileImage clerkId");
+    .populate("participants", "name email profileImage clerkId");
 
   if (!session) {
     throw new ApiError(404, "Session not found");
   }
 
   const isHost = session.host._id.toString() === userId.toString();
-  const isParticipant =
-    session.participant && session.participant._id.toString() === userId.toString();
+  const isParticipant = session.participants.some(
+    (p) => p._id.toString() === userId.toString()
+  );
 
   // 🔥 RULE:
   // Anyone can VIEW active session
@@ -155,25 +134,34 @@ const getSessionById = asyncHandler(async (req, res) => {
 });
 
 //? Join session
-// NOTE: user can join session if session is active and has no participant
+// NOTE: user can join session if session is active and has room for more participants
 const joinSession = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const userId = req.user._id;
   const clerkId = req.user.clerkId;
 
+  // Atomically add participant if:
+  // 1. Session is active
+  // 2. User is not the host
+  // 3. User is not already a participant
+  // 4. Participants count < maxParticipants
   const session = await Session.findOneAndUpdate(
     {
       _id: id,
       status: "active",
-      participant: null,
       host: { $ne: userId },
+      participants: { $ne: userId },
+      $expr: { $lt: [{ $size: { $ifNull: ["$participants", []] } }, "$maxParticipants"] },
     },
-    { participant: userId },
+    { $addToSet: { participants: userId } },
     { new: true }
   );
 
   if (!session) {
-    throw new ApiError(409, "Cannot join session (not active, full, or host attempting to join)");
+    throw new ApiError(
+      409,
+      "Cannot join session (not active, full, host attempting to join, or already joined)"
+    );
   }
 
   const channel = chatClient.channel("messaging", session.callId);
@@ -182,39 +170,9 @@ const joinSession = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(200, "Joined session successfully", session));
 });
+
 //? End session
 // NOTE: host can end session by changing status to completed
-// const endSession = asyncHandler(async (req, res) => {
-//   const { id } = req.params;
-//   const userId = req.user._id;
-
-//   const session = await Session.findById(id);
-
-//   if (!session) {
-//     throw new ApiError(404, "Session not found");
-//   }
-
-//   // check if user is the host
-//   if (session.host.toString() !== userId.toString()) {
-//     throw new ApiError(403, "Only the host can end the session");
-//   }
-
-//   // check if session is already completed
-//   if (session.status === "completed") {
-//     throw new ApiError(400, "Session is already completed");
-//   }
-
-//   // delete stream video call
-//   const call = streamClient.video.call("default", session.callId);
-//   await call.delete({ hard: true });
-//   // delete stream chat channel
-//   const channel = chatClient.channel("messaging", session.callId);
-//   await channel.delete();
-
-//   session.status = "completed";
-//   await session.save();
-//   res.status(200).json(new ApiResponse(200, "Session ended successfully", session));
-// });
 const endSession = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const userId = req.user._id;

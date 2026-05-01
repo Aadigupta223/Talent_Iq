@@ -19,7 +19,8 @@ import OutputPanel from "../components/OutputPanel";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { getDifficultyBadgeClass } from "../lib/utils.js";
 
-import { Loader2Icon, LogOutIcon, PhoneOffIcon } from "lucide-react";
+import { Loader2Icon, LogOutIcon, PhoneOffIcon, CopyIcon, CheckIcon } from "lucide-react";
+import toast from "react-hot-toast";
 
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
@@ -34,6 +35,7 @@ function SessionPage() {
   const [code, setCode] = useState("");
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   const { data: session, isLoading: loadingSession, refetch } =
     useSessionById(id);
@@ -42,7 +44,7 @@ function SessionPage() {
   const endSessionMutation = useEndSession();
 
   const isHost = session?.host?.clerkId === user?.id;
-  const isParticipant = session?.participant?.clerkId === user?.id;
+  const isParticipant = session?.participants?.some((p) => p.clerkId === user?.id);
 
   const {
     call,
@@ -95,6 +97,14 @@ function SessionPage() {
     });
   };
 
+  const handleCopyLink = () => {
+    const link = `${window.location.origin}/session/${id}`;
+    navigator.clipboard.writeText(link);
+    setIsCopied(true);
+    toast.success("Invite link copied to clipboard!");
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
   return (
     <div className="h-screen bg-base-100 flex flex-col">
       <Navbar />
@@ -113,7 +123,7 @@ function SessionPage() {
                     </h1>
                     <p className="text-sm text-base-content/60">
                       Host: {session?.host?.name} •{" "}
-                      {session?.participant ? 2 : 1}/2 participants
+                      {(session?.participants?.length ?? 0) + 1}/{session?.maxParticipants ?? 100} participants
                     </p>
                   </div>
 
@@ -127,13 +137,22 @@ function SessionPage() {
                     </span>
 
                     {isHost && session?.status === "active" && (
-                      <button
-                        onClick={handleEndSession}
-                        className="btn btn-error btn-sm gap-2"
-                      >
-                        <LogOutIcon className="w-4 h-4" />
-                        End Session
-                      </button>
+                      <>
+                        <button
+                          onClick={handleCopyLink}
+                          className="btn btn-outline btn-primary btn-sm gap-2"
+                        >
+                          {isCopied ? <CheckIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />}
+                          Copy Invite Link
+                        </button>
+                        <button
+                          onClick={handleEndSession}
+                          className="btn btn-error btn-sm gap-2"
+                        >
+                          <LogOutIcon className="w-4 h-4" />
+                          End Session
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -168,6 +187,7 @@ function SessionPage() {
                   }
                   onCodeChange={setCode}
                   onRunCode={handleRunCode}
+                  sessionId={id}
                 />
               </Panel>
 
